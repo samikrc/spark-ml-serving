@@ -7,7 +7,7 @@ import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.regression._
 
 class CommonModelsSpec extends GenericTestSpec {
-
+  /*
   modelTest(
     data = session.createDataFrame(
       Seq(
@@ -458,6 +458,7 @@ class CommonModelsSpec extends GenericTestSpec {
       "features"
     )
   )
+  */
 
   modelTest(
     data = session.read.format("libsvm")
@@ -468,6 +469,17 @@ class CommonModelsSpec extends GenericTestSpec {
     columns = Seq(
       "topicDistribution"
     ),
+    accuracy = 1
+  )
+
+  import session.implicits._
+  modelTest(
+    data = session.sparkContext.textFile(getClass.getResource("/data/mllib/news.txt").getPath).toDF("text"),
+    steps = Seq(
+      new RegexTokenizer().setInputCol("text").setOutputCol("words").setPattern("\\W").setToLowercase(false),
+      new Word2Vec().setInputCol("words").setOutputCol("result").setVectorSize(10).setMinCount(0)
+    ),
+    columns = Seq("result"),
     accuracy = 1
   )
 }

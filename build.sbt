@@ -1,4 +1,4 @@
-lazy val sparkVersion = util.Properties.propOrElse("sparkVersion", "2.0.2")
+lazy val sparkVersion = util.Properties.propOrElse("sparkVersion", "2.3.1")
 lazy val localSparkVersion = sparkVersion.substring(0,sparkVersion.lastIndexOf(".")).replace('.', '_')
 lazy val versionRegex = "(\\d+)\\.(\\d+).*".r
 
@@ -20,6 +20,7 @@ sparkVersion match {
   case versionRegex("2", "0") => addSources("spark-2_0")
   case versionRegex("2", "1") => addSources("spark-2_1")
   case versionRegex("2", "2") => addSources("spark-2_2")
+  case versionRegex("2", "3") => addSources("spark-2_2")
 }
 
 lazy val root = project.in(file("."))

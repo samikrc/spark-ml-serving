@@ -34,9 +34,11 @@ trait GenericTestSpec extends FunSpec with BeforeAndAfterAll {
       val pipelineModel = pipeline.fit(data)
       validation = LocalData.fromDataFrame(pipelineModel.transform(data))
       pipelineModel.write.overwrite().save(path)
+      println(s"Saved model at: [$path]")
     }
 
     it("should load local version") {
+      println(s"Loading model from: [$path]")
       localPipelineModel = Some(LocalPipelineModel.load(path))
       assert(localPipelineModel.isDefined)
     }
