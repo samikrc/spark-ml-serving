@@ -6,8 +6,10 @@ import org.apache.spark.ml.feature._
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.regression._
 
+import scala.collection.mutable.ArrayBuffer
+import scala.io.Source
+
 class CommonModelsSpec extends GenericTestSpec {
-  /*
   modelTest(
     data = session.createDataFrame(
       Seq(
@@ -458,7 +460,6 @@ class CommonModelsSpec extends GenericTestSpec {
       "features"
     )
   )
-  */
 
   modelTest(
     data = session.read.format("libsvm")
@@ -472,12 +473,44 @@ class CommonModelsSpec extends GenericTestSpec {
     accuracy = 1
   )
 
-  import session.implicits._
   modelTest(
-    data = session.sparkContext.textFile(getClass.getResource("/data/mllib/news.txt").getPath).toDF("text"),
+    data = session.read.json(getClass.getResource("/data/mllib/reviews.txt").getPath).select("text"),
     steps = Seq(
       new RegexTokenizer().setInputCol("text").setOutputCol("words").setPattern("\\W").setToLowercase(false),
       new Word2Vec().setInputCol("words").setOutputCol("result").setVectorSize(10).setMinCount(0)
+    ),
+    columns = Seq("result"),
+    accuracy = 1
+  )
+
+  modelTest(
+    data = session.read.json(getClass.getResource("/data/mllib/reviews.txt").getPath).select("text", "stars"),
+    steps = Seq(
+      // Start with tokenization and stopword removal
+      new RegexTokenizer().setInputCol("text").setOutputCol("raw").setPattern("\\W").setToLowercase(false),
+      new StopWordsRemover().setInputCol("raw").setOutputCol("filtered"),
+      // First generate the n-grams: 2-4
+      new NGram().setN(2).setInputCol("filtered").setOutputCol("bigrams"),
+      new NGram().setN(3).setInputCol("filtered").setOutputCol("trigrams"),
+      new NGram().setN(4).setInputCol("filtered").setOutputCol("quadgrams"),
+      // Next generate HashingTF from each of the gram columns
+      new HashingTF().setInputCol("filtered").setOutputCol("ughash").setNumFeatures(2000),
+      new HashingTF().setInputCol("bigrams").setOutputCol("bghash").setNumFeatures(2000),
+      new HashingTF().setInputCol("trigrams").setOutputCol("tghash").setNumFeatures(2000),
+      new HashingTF().setInputCol("quadgrams").setOutputCol("qghash").setNumFeatures(2000),
+      // Next compute IDF for each of these columns
+      new IDF().setInputCol("ughash").setOutputCol("ugidf"),
+      new IDF().setInputCol("bghash").setOutputCol("bgidf"),
+      new IDF().setInputCol("tghash").setOutputCol("tgidf"),
+      new IDF().setInputCol("qghash").setOutputCol("qgidf"),
+      //  Next combine these vectors using VectorAssembler
+      new VectorAssembler().setInputCols(Array("ugidf", "bgidf", "tgidf", "qgidf")).setOutputCol("features"),
+      // Set up a StringIndexer for the response column
+      new StringIndexer().setInputCol("stars").setOutputCol("label"),
+      // Now run an One-Vs-Rest SVM model
+      new OneVsRest().setClassifier(new LinearSVC().setMaxIter(10).setRegParam(0.1)),
+      // Finally, we need to convert the prediction back to own labels
+      new IndexToString().setInputCol("prediction").setOutputCol("result")
     ),
     columns = Seq("result"),
     accuracy = 1
